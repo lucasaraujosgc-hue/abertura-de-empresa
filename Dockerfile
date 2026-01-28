@@ -1,35 +1,41 @@
-# Estágio 1: Build da aplicação React
+# Estágio 1: Build do Frontend (React/Vite)
 FROM node:18-alpine AS builder
 
-# Define o diretório de trabalho
+# Define diretório de trabalho
 WORKDIR /app
 
-# Copia o arquivo de dependências
-COPY package.json ./
+# Copia arquivos de dependência
+COPY package*.json ./
 
-# Instala as dependências
+# Instala todas as dependências (incluindo devDependencies para o build)
 RUN npm install
 
-# Copia o restante do código fonte
+# Copia o código fonte
 COPY . .
 
-# Executa o build de produção (gera a pasta /dist)
+# Executa o build (gera a pasta /dist)
 RUN npm run build
 
-# Estágio 2: Servidor Nginx para arquivos estáticos
-FROM nginx:alpine
+# Estágio 2: Servidor de Produção (Node.js/Express)
+FROM node:18-alpine
 
-# Remove configurações padrão do Nginx se necessário
-RUN rm -rf /etc/nginx/conf.d/*
+# Define diretório de trabalho
+WORKDIR /app
 
-# Copia os arquivos gerados no build anterior para o diretório do Nginx
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copia arquivos de dependência
+COPY package*.json ./
 
-# Copia o arquivo de configuração customizado do Nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Instala apenas dependências de produção (express, nodemailer, etc)
+RUN npm install --production
+
+# Copia o build estático do estágio anterior para a pasta dist
+COPY --from=builder /app/dist ./dist
+
+# Copia o script do servidor
+COPY server.js .
 
 # Expõe a porta 80
 EXPOSE 80
 
-# Inicia o Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Inicia o servidor Node.js
+CMD ["node", "server.js"]
