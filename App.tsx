@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [companyType, setCompanyType] = useState<CompanyType>(CompanyType.INDIVIDUAL);
   const [partners, setPartners] = useState<Partner[]>([createEmptyPartner()]);
   const [companyData, setCompanyData] = useState<CompanyData>(initialCompanyData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Handlers for Company Type
   const handleTypeChange = (type: CompanyType) => {
@@ -139,20 +140,37 @@ const App: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
     const formData: FormData = { companyType, partners, companyData };
     const emailHtml = generateEmailHtml(formData);
     
-    // Simulation of sending email via environment variables
-    console.log("--- START EMAIL SIMULATION ---");
-    console.log(`Connecting to ${process.env.MAIL_SERVER}:${process.env.MAIL_PORT}`);
-    console.log(`Auth User: ${process.env.MAIL_USERNAME}`);
-    console.log(`Sending to: ${process.env.MAIL_PORT2}`); // Using MAIL_PORT2 as recipient per instruction
-    console.log(`Subject: ABERTURA DE EMPRESA - ${companyData.razaoSocial}`);
-    console.log("Body:", emailHtml);
-    console.log("--- END EMAIL SIMULATION ---");
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subject: `ABERTURA DE EMPRESA - ${companyData.razaoSocial}`,
+          html: emailHtml
+        }),
+      });
 
-    alert("Solicitação enviada com sucesso! Uma cópia dos dados foi gerada (verifique o console para simulação do envio).");
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Solicitação enviada com sucesso! Nossa equipe logo entrará em contato com você.");
+      } else {
+        console.error('Erro backend:', result);
+        alert(`Erro ao enviar solicitação: ${result.error || 'Erro desconhecido'}`);
+      }
+    } catch (error) {
+      console.error('Erro de rede:', error);
+      alert("Erro de conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -296,9 +314,20 @@ const App: React.FC = () => {
           <div className="pt-2 border-t border-white/10 flex justify-end">
             <button
               type="submit"
-              className="bg-[#10b981] hover:bg-[#059669] text-[#020a1c] font-bold text-lg py-4 px-10 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transform hover:-translate-y-1 transition-all duration-200 w-full md:w-auto text-center"
+              disabled={isSubmitting}
+              className={`bg-[#10b981] hover:bg-[#059669] text-[#020a1c] font-bold text-lg py-4 px-10 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transform hover:-translate-y-1 transition-all duration-200 w-full md:w-auto text-center flex items-center justify-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              Finalizar Cadastro
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-[#020a1c]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Enviando...
+                </>
+              ) : (
+                'Finalizar Cadastro'
+              )}
             </button>
           </div>
 
