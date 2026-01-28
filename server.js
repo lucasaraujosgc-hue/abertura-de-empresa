@@ -22,17 +22,26 @@ app.use(express.static(path.join(__dirname, 'dist')));
 app.post('/api/send-email', async (req, res) => {
   const { subject, html } = req.body;
 
+  const port = parseInt(process.env.MAIL_PORT || '587');
+  // CORREÇÃO: 'secure' deve ser true apenas para porta 465. 
+  // Para 587, deve ser false para permitir STARTTLS.
+  const isSecure = port === 465;
+
+  console.log(`Tentando enviar e-mail via ${process.env.MAIL_SERVER}:${port} (Secure: ${isSecure})`);
+
   // Configuração do transporte SMTP
   const transporter = nodemailer.createTransport({
     host: process.env.MAIL_SERVER,
-    port: parseInt(process.env.MAIL_PORT || '587'),
-    secure: process.env.MAIL_USE_TLS === 'true', // true para 465, false para outras portas
+    port: port,
+    secure: isSecure, 
     auth: {
       user: process.env.MAIL_USERNAME,
       pass: process.env.MAIL_PASSWORD,
     },
     tls: {
-      rejectUnauthorized: false // Ajuda em alguns servidores SMTP com certificados auto-assinados
+      // Necessário para alguns servidores SMTP que não possuem certificados válidos ou incompatibilidade de versão
+      rejectUnauthorized: false,
+      ciphers: 'SSLv3'
     }
   });
 
@@ -40,7 +49,7 @@ app.post('/api/send-email', async (req, res) => {
     // Envia o e-mail
     const info = await transporter.sendMail({
       from: `Vírgula Contábil <${process.env.MAIL_USERNAME}>`,
-      to: process.env.MAIL_PORT2, // Utilizando a variável que contém o e-mail de destino
+      to: process.env.MAIL_PORT2,
       subject: subject,
       html: html,
     });
